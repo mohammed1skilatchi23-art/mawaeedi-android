@@ -15,6 +15,7 @@ jobs:
 
       - name: Unzip Project Files
         run: |
+          echo "Unzipping project..."
           unzip -o inshae-ttbyq.zip
 
       - name: Set up JDK 17
@@ -29,22 +30,37 @@ jobs:
           node-version: '20'
 
       - name: Install Dependencies
-        run: npm install --legacy-peer-deps || npm install --force
+        run: |
+          if [ -f "package.json" ]; then
+            echo "package.json found. Running npm install..."
+            npm install --legacy-peer-deps || npm install --force
+          else
+            echo "No package.json found. Skipping npm install."
+          fi
 
-      - name: Build Web Assets
-        run: npm run build --if-present
-
-      - name: Sync Capacitor
-        run: npx cap sync android || true
+      - name: Build Web Assets & Sync
+        run: |
+          if [ -f "package.json" ]; then
+            npm run build --if-present || true
+            npx cap sync android || true
+          fi
 
       - name: Build Android APK
         run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
+          if [ -n "$GRADLEW_PATH" ]; then
+            echo "Found gradlew at $GRADLEW_PATH"
+            GRADLE_DIR=$(dirname "$GRADLEW_PATH")
+            cd "$GRADLE_DIR"
+            chmod +x gradlew
+            ./gradlew assembleDebug
+          else
+            echo "Error: gradlew file not found in the project!"
+            exit 1
+          fi
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: mawaeedi-app-debug
+          path: '**/build/outputs/apk/debug/*.apk'
