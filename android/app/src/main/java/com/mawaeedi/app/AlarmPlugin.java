@@ -72,12 +72,14 @@ public class AlarmPlugin extends Plugin {
     }
 
     private SharedPreferences prefs() { return getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE); }
-    private JSONArray readAll() { return new JSONArray(prefs().getString(KEY_ALARMS, "[]")); }
+    private JSONArray readAll() {
+        try { return new JSONArray(prefs().getString(KEY_ALARMS, "[]")); } catch (Exception ignored) { return new JSONArray(); }
+    }
     private void save(String id, long at, String title) {
         JSONArray next = new JSONArray();
         JSONArray current = readAll();
         for (int i = 0; i < current.length(); i++) try { if (!id.equals(current.getJSONObject(i).getString("id"))) next.put(current.getJSONObject(i)); } catch (Exception ignored) {}
-        next.put(new JSONObject().put("id", id).put("triggerAtMillis", at).put("title", title));
+        try { next.put(new JSONObject().put("id", id).put("triggerAtMillis", at).put("title", title)); } catch (Exception ignored) {}
         prefs().edit().putString(KEY_ALARMS, next.toString()).apply();
     }
     private void remove(String id) {
@@ -87,7 +89,9 @@ public class AlarmPlugin extends Plugin {
         prefs().edit().putString(KEY_ALARMS, next.toString()).apply();
     }
 
-    static JSONArray stored(Context context) { return new JSONArray(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_ALARMS, "[]")); }
+    static JSONArray stored(Context context) {
+        try { return new JSONArray(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_ALARMS, "[]")); } catch (Exception ignored) { return new JSONArray(); }
+    }
 }
 
 final class AlarmScheduler {
