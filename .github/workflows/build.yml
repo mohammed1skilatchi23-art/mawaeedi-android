@@ -1,4 +1,6 @@
-name: Build APK
+
+
+name: Build Android APK
 
 on:
   push:
@@ -8,30 +10,78 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Unzip
-        run: unzip -o inshae-ttbyq.zip
-        
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          
-      - name: Build & Gradle
-        run: |
-          if [ -f "package.json" ]; then npm install --legacy-peer-deps && npm run build --if-present && npx cap sync android; fi
-          cd $(find . -name "gradlew" -exec dirname {} \; | head -n 1)
-          chmod +x gradlew
-          ./gradlew assembleDebug
-          
-      - uses: actions/upload-artifact@v4
-        with:
-          name: mawaeedi-app
-          path: '**/build/outputs/apk/debug/*.apk'
 
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: |
+          echo "Extracting project..."
+          unzip -o inshae-ttbyq.zip -d project
+          echo "Project structure:"
+          find project -maxdepth 3 -type f | head -100
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Find project
+        run: |
+          echo "Searching for package.json..."
+          find project -name package.json -type f
+
+          echo "Searching for Gradle..."
+          find project -name gradlew -type f
+
+      - name: Install dependencies
+        run: |
+          PACKAGE_DIR=$(dirname "$(find project -name package.json -type f | head -n 1)")
+
+          if [ -n "$PACKAGE_DIR" ] && [ "$PACKAGE_DIR" != "." ]; then
+            echo "Project directory: $PACKAGE_DIR"
+            cd "$PACKAGE_DIR"
+
+            npm install --legacy-peer-deps
+            npm run build --if-present
+
+            if [ -d "android" ]; then
+              npx cap sync android
+            fi
+          else
+            echo "ERROR: package.json was not found!"
+            exit 1
+          fi
+
+      - name: Build APK
+        run: |
+          GRADLEW_PATH=$(find project -name gradlew -type f | head -n 1)
+
+          if [ -z "$GRADLEW_PATH" ]; then
+            echo "ERROR: gradlew was not found!"
+            echo "Project contents:"
+            find project -maxdepth 5 -type f
+            exit 1
+          fi
+
+          echo "Found Gradle: $GRADLEW_PATH"
+
+          GRADLE_DIR=$(dirname "$GRADLEW_PATH")
+          cd "$GRADLE_DIR"
+
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mawaeedi-app-debug
+          path: "project/**/build/outputs/apk/debug/*.apk"
+          if-no-files-found: error
